@@ -132,6 +132,17 @@ namespace tinystl {
 	static inline void buffer_init(buffer<T, Alloc>* b) {
 		b->first = b->last = b->capacity = 0;
 	}
+	
+	template<typename T, typename Alloc>
+	static inline void buffer_alloc(buffer<T, Alloc>* b, size_t count) {
+		typedef T* pointer;
+		pointer first = (pointer)Alloc::static_allocate(sizeof(T) * count);
+		b->first = first;
+		b->last = first + count;
+		b->capacity = first + count;
+		for(T* end = first + count; first != end; ++first)
+			new(placeholder(), first) T();
+	}
 
 	template<typename T, typename Alloc>
 	static inline void buffer_destroy(buffer<T, Alloc>* b) {
@@ -238,10 +249,29 @@ namespace tinystl {
 	}
 
 	template<typename T, typename Alloc>
+	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, const T& value) {
+		where = buffer_insert_common(b, where, 1);
+		new(placeholder(), where) T(value);
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, T&& value) {
+		where = buffer_insert_common(b, where, 1);
+		new(placeholder(), where) T(static_cast<T&&>(value));
+	}
+
+	template<typename T, typename Alloc>
 	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, size_t count) {
 		where = buffer_insert_common(b, where, count);
 		for (T* end = where+count; where != end; ++where)
 			new(placeholder(), where) T();
+	}
+
+	template<typename T, typename Alloc, typename... Params>
+	static inline void buffer_emplace(buffer<T, Alloc>* b, T* where, size_t count, Params&&... params) {
+		where = buffer_insert_common(b, where, count);
+		for(T* end = where + count; where != end; ++where)
+			new(placeholder(), where) T(static_cast<Params&&>(params)...);
 	}
 
 	template<typename T, typename Alloc, typename Param>
@@ -261,6 +291,17 @@ namespace tinystl {
 			++b->last;
 		} else {
 			buffer_insert(b, b->last, 1);
+		}
+	}
+
+	template<typename T, typename Alloc, typename... Params>
+	static inline void buffer_emplace_back(buffer<T, Alloc>* b, Params&&... params) {
+		if(b->capacity != b->last) {
+			new(placeholder(), b->last) T(static_cast<Params&&>(params)...);
+			++b->last;
+		}
+		else {
+			buffer_emplace(b, b->last, 1, static_cast<Params&&>(params)...);
 		}
 	}
 

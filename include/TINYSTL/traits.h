@@ -27,6 +27,8 @@
 #ifndef TINYSTL_TRAITS_H
 #define TINYSTL_TRAITS_H
 
+#include <utility>
+
 #include <TINYSTL/new.h>
 
 #if defined(__GNUC__)
@@ -59,7 +61,7 @@ namespace tinystl {
 
 	template<typename T>
 	static inline void move_construct_impl(T* a, T& b, ...) {
-		new(placeholder(), a) T(b);
+		new(placeholder(), a) T(std::move(b));
 	}
 
 	template<typename T>
