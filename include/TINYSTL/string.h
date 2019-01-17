@@ -501,7 +501,7 @@ namespace tinystl {
 		const size_t hay_size = size();
 		const char* hay = m_buffer.first;
 		if(hay_size != 0)
-			for(pointer current = hay + min(offset, hay_size - 1); current != hay; --current)
+			for(const char* current = hay + min(offset, hay_size - 1); current != hay; --current)
 			{
 				if(*current == c)
 					return size_t(current - hay);
@@ -523,7 +523,7 @@ namespace tinystl {
 			return offset;
 
 		const char* last_possible = hay + (hay_size - needle_size) + 1;
-		for(auto current = hay + offset; ; ++current)
+		for(const char* current = hay + offset; ; ++current)
 		{
 			current = string_find(current, size_t(last_possible - current), *needle);
 			if(!current)

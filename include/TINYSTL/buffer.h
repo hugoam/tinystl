@@ -243,7 +243,7 @@ namespace tinystl {
 	static inline void string_resize(buffer<T, Alloc>& b, size_t size, const T& value) {
 		string_reserve(b, size);
 
-		buffer_fill_urange(b.last, b.first + size + 1);
+		buffer_fill_urange(b.last, b.first + size + 1, value);
 		b.last = b.first + size;
 		*b.last = 0;
 	}
