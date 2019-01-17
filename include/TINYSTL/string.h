@@ -375,7 +375,7 @@ namespace tinystl {
 	template<typename Alloc>
 	inline void basic_string<Alloc>::assign(const char* first, const char* last) {
 		string_clear(m_buffer);
-		string_append(m_buffer, m_small, other.begin(), other.end());
+		string_append(m_buffer, m_small, first, last);
 	}
 
 	template<typename Alloc>
@@ -422,17 +422,17 @@ namespace tinystl {
 
 	template<typename Alloc>
 	inline typename void basic_string<Alloc>::erase(size_t pos, size_t len) {
-		buffer_erase(m_buffer, m_buffer.first + pos, len == npos ? m_buffer.last : m_buffer.first + pos + len);
+		string_erase(m_buffer, m_buffer.first + pos, len == npos ? m_buffer.last : m_buffer.first + pos + len);
 	}
 
 	template<typename Alloc>
 	inline typename basic_string<Alloc>::iterator basic_string<Alloc>::erase(iterator where) {
-		return buffer_erase(m_buffer, where, where + 1);
+		return string_erase(m_buffer, where, where + 1);
 	}
 
 	template<typename Alloc>
 	inline typename basic_string<Alloc>::iterator basic_string<Alloc>::erase(iterator first, iterator last) {
-		return buffer_erase(m_buffer, first, last);
+		return string_erase(m_buffer, first, last);
 	}
 
 	template<typename Alloc>

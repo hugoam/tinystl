@@ -401,6 +401,12 @@ namespace tinystl {
 	}
 
 	template<typename T, typename Alloc>
+	static inline T* string_erase(buffer<T, Alloc>& b, T* first, T* last) {
+		buffer_erase(b, first, last);
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
 	static inline void buffer_pop(buffer<T, Alloc>& b) {
 		buffer_destroy_range(b.last - 1, b.last);
 		b.last--;

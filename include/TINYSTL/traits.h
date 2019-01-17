@@ -63,7 +63,7 @@ namespace tinystl {
 
 	template<typename T>
 	static inline void move_impl(T& a, T& b, ...) {
-		a = b;
+		a = move(b);
 	}
 
 	template<typename T>
