@@ -38,6 +38,7 @@ namespace tinystl {
 		pair(const pair& other);
 		pair(pair&& other);
 		pair(const Key& key, const Value& value);
+		pair(const Key& key, Value&& value);
 		pair(Key&& key, Value&& value);
 
 		pair& operator=(const pair& other);
@@ -69,6 +70,13 @@ namespace tinystl {
 	inline pair<Key, Value>::pair(const Key& key, const Value& value)
 		: first(key)
 		, second(value)
+	{
+	}
+
+	template<typename Key, typename Value>
+	inline pair<Key, Value>::pair(const Key& key, Value&& value)
+		: first(key)
+		, second(static_cast<Value&&>(value))
 	{
 	}
 

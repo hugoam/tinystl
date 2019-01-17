@@ -27,8 +27,6 @@
 #ifndef TINYSTL_TRAITS_H
 #define TINYSTL_TRAITS_H
 
-#include <utility>
-
 #include <TINYSTL/new.h>
 
 #if defined(__GNUC__)
@@ -40,6 +38,25 @@
 #endif
 
 namespace tinystl {
+
+	template<class T>
+	struct remove_reference { using type = T; };
+
+	template<class T>
+	struct remove_reference<T&> { using type = T; };
+
+	template<class T>
+	struct remove_reference<T&&> { using type = T; };
+
+	template<class T>
+	using remove_reference_t = typename remove_reference<T>::type;
+
+	template<class T>
+	constexpr remove_reference_t<T>&& move(T&& arg) noexcept
+	{
+		return (static_cast<remove_reference_t<T>&&>(arg));
+	}
+
 	template<typename T, bool pod = TINYSTL_TRY_POD_OPTIMIZATION(T)> struct pod_traits {};
 
 	template<typename T, T t> struct swap_holder;
@@ -61,7 +78,7 @@ namespace tinystl {
 
 	template<typename T>
 	static inline void move_construct_impl(T* a, T& b, ...) {
-		new(placeholder(), a) T(std::move(b));
+		new(placeholder(), a) T(move(b));
 	}
 
 	template<typename T>
@@ -82,21 +99,6 @@ namespace tinystl {
 	static inline void move_construct(T* a, T& b) {
 		move_construct_impl(a, b, (T*)0);
 	}
-
-	template<typename T>
-	struct remove_reference {
-		typedef T type;
-	};
-
-	template<typename T>
-	struct remove_reference<T&> {
-		typedef T type;
-	};
-
-	template<typename T>
-	struct remove_reference<T&&> {
-		typedef T type;
-	};
 }
 
 #endif

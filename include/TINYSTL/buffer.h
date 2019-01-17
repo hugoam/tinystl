@@ -35,9 +35,9 @@ namespace tinystl {
 
 	template<typename T, typename Alloc = TINYSTL_ALLOCATOR>
 	struct buffer {
-		T* first;
-		T* last;
-		T* capacity;
+		T* first = 0;
+		T* last = 0;
+		T* capacity = 0;
 	};
 
 	template<typename T>
@@ -80,6 +80,18 @@ namespace tinystl {
 	}
 
 	template<typename T>
+	static inline void buffer_copy_urange_traits(T* dest, const T* first, const T* last, pod_traits<T, false>) {
+		for (T* it = first; it != last; ++it, ++dest)
+			new(placeholder(), first) T(*it);
+	}
+
+	template<typename T>
+	static inline void buffer_copy_urange_traits(T* dest, const T* first, const T* last, pod_traits<T, true>) {
+		for (; first != last; ++first, ++dest)
+			*dest = *first;
+	}
+
+	template<typename T>
 	static inline void buffer_move_urange_traits(T* dest, T* first, T* last, pod_traits<T, false>) {
 		for (T* it = first; it != last; ++it, ++dest)
 			move_construct(dest, *it);
@@ -109,16 +121,6 @@ namespace tinystl {
 	}
 
 	template<typename T>
-	static inline void buffer_move_urange(T* dest, T* first, T* last) {
-		buffer_move_urange_traits(dest, first, last, pod_traits<T>());
-	}
-
-	template<typename T>
-	static inline void buffer_bmove_urange(T* dest, T* first, T* last) {
-		buffer_bmove_urange_traits(dest, first, last, pod_traits<T>());
-	}
-
-	template<typename T>
 	static inline void buffer_fill_urange(T* first, T* last) {
 		buffer_fill_urange_traits(first, last, pod_traits<T>());
 	}
@@ -128,223 +130,315 @@ namespace tinystl {
 		buffer_fill_urange_traits(first, last, value, pod_traits<T>());
 	}
 
-	template<typename T, typename Alloc>
-	static inline void buffer_init(buffer<T, Alloc>* b) {
-		b->first = b->last = b->capacity = 0;
+	template<typename T>
+	static inline void buffer_copy_urange(T* dest, const T* first, const T* last) {
+		buffer_copy_urange_traits(dest, first, last, pod_traits<T>());
 	}
-	
+
+	template<typename T>
+	static inline void buffer_move_urange(T* dest, T* first, T* last) {
+		buffer_move_urange_traits(dest, first, last, pod_traits<T>());
+	}
+
+	template<typename T>
+	static inline void buffer_bmove_urange(T* dest, T* first, T* last) {
+		buffer_bmove_urange_traits(dest, first, last, pod_traits<T>());
+	}
+
 	template<typename T, typename Alloc>
-	static inline void buffer_alloc(buffer<T, Alloc>* b, size_t count) {
+	static inline void string_reset(buffer<T, Alloc>& b, T* storage, size_t capacity) {
+		b.first = b.last = storage;
+		b.capacity = storage + capacity;
+		storage[0] = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void string_reset(buffer<T, Alloc>& b, T* storage, size_t capacity, size_t size) {
+		b.first = storage;
+		b.last = storage + size;
+		b.capacity = storage + capacity;
+		storage[size] = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_alloc(buffer<T, Alloc>& b, size_t count) {
 		typedef T* pointer;
-		pointer first = (pointer)Alloc::static_allocate(sizeof(T) * count);
-		b->first = first;
-		b->last = first + count;
-		b->capacity = first + count;
-		for(T* end = first + count; first != end; ++first)
-			new(placeholder(), first) T();
+		b.first = (pointer)Alloc::static_allocate(sizeof(T) * count);
+		b.last = b.capacity = b.first + count;
+		buffer_fill_urange(b.first, b.first + count);
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_destroy(buffer<T, Alloc>* b) {
-		buffer_destroy_range(b->first, b->last);
-		Alloc::static_deallocate(b->first, (size_t)((char*)b->capacity - (char*)b->first));
+	static inline void buffer_destroy(buffer<T, Alloc>& b) {
+		buffer_destroy_range(b.first, b.last);
+		Alloc::static_deallocate(b.first, (size_t)((char*)b.capacity - (char*)b.first));
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_reserve(buffer<T, Alloc>* b, size_t capacity) {
-		if (b->first + capacity <= b->capacity)
+	static inline void buffer_realloc(buffer<T, Alloc>& b, size_t capacity, size_t padding = 0, bool nodealloc = false) {
+		typedef T* pointer;
+		const size_t size = (size_t)(b.last - b.first);
+		pointer first = (pointer)Alloc::static_allocate(sizeof(T) * (capacity + padding));
+		buffer_move_urange(first, b.first, b.last);
+		if(!nodealloc)
+			Alloc::static_deallocate(b.first, sizeof(T) * capacity);
+
+		b.first = first;
+		b.last = first + size;
+		b.capacity = first + capacity;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_reserve(buffer<T, Alloc>& b, size_t capacity, size_t padding = 0, bool nodealloc = false) {
+		if(b.first + capacity + padding <= b.capacity)
 			return;
-
-		typedef T* pointer;
-		const size_t size = (size_t)(b->last - b->first);
-		pointer newfirst = (pointer)Alloc::static_allocate(sizeof(T) * capacity);
-		buffer_move_urange(newfirst, b->first, b->last);
-		Alloc::static_deallocate(b->first, sizeof(T) * capacity);
-
-		b->first = newfirst;
-		b->last = newfirst + size;
-		b->capacity = newfirst + capacity;
+		buffer_realloc(b, capacity, padding, nodealloc);
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_resize(buffer<T, Alloc>* b, size_t size) {
+	static inline void buffer_grow(buffer<T, Alloc>& b, size_t size, size_t padding = 0, bool nodealloc = false) {
+		if(b.first + size > b.capacity)
+			buffer_realloc(b, (size * 3) / 2, padding, nodealloc);
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_grow_count(buffer<T, Alloc>& b, size_t count, size_t padding = 0, bool nodealloc = false) {
+		if(b.last + count > b.capacity)
+			buffer_realloc(b, ((b.last - b.first + count) * 3) / 2, padding, nodealloc);
+	}
+
+	template<typename T, typename Alloc>
+	static inline void string_reserve(buffer<T, Alloc>& b, T* storage, size_t capacity) {
+		buffer_reserve(b, capacity, 1, b.first == storage);
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_resize(buffer<T, Alloc>& b, size_t size) {
 		buffer_reserve(b, size);
 
-		buffer_fill_urange(b->last, b->first + size);
-		buffer_destroy_range(b->first + size, b->last);
-		b->last = b->first + size;
+		buffer_fill_urange(b.last, b.first + size);
+		buffer_destroy_range(b.first + size, b.last);
+		b.last = b.first + size;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_resize(buffer<T, Alloc>* b, size_t size, const T& value) {
+	static inline void buffer_resize(buffer<T, Alloc>& b, size_t size, const T& value) {
 		buffer_reserve(b, size);
 
-		buffer_fill_urange(b->last, b->first + size, value);
-		buffer_destroy_range(b->first + size, b->last);
-		b->last = b->first + size;
+		buffer_fill_urange(b.last, b.first + size, value);
+		buffer_destroy_range(b.first + size, b.last);
+		b.last = b.first + size;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_shrink_to_fit(buffer<T, Alloc>* b) {
-		if (b->capacity != b->last) {
-			if (b->last == b->first) {
-				const size_t capacity = (size_t)(b->capacity - b->first);
-				Alloc::static_deallocate(b->first, sizeof(T)*capacity);
-				b->capacity = b->first = b->last = nullptr;
+	static inline void string_resize(buffer<T, Alloc>& b, T* storage, size_t size) {
+		string_reserve(b, storage, size);
+
+		buffer_fill_urange(b.last, b.first + size + 1);
+		b.last = b.first + size;
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void string_resize(buffer<T, Alloc>& b, size_t size, const T& value) {
+		string_reserve(b, size);
+
+		buffer_fill_urange(b.last, b.first + size + 1);
+		b.last = b.first + size;
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_shrink_to_fit(buffer<T, Alloc>& b, size_t padding = 0) {
+		if (b.capacity != b.last) {
+			if (b.last == b.first) {
+				const size_t capacity = (size_t)(b.capacity - b.first);
+				Alloc::static_deallocate(b.first, sizeof(T) * (capacity + padding));
+				b.capacity = b.first = b.last = nullptr;
 			} else {
-				const size_t capacity = (size_t)(b->capacity - b->first);
-				const size_t size = (size_t)(b->last - b->first);
-				T* newfirst = (T*)Alloc::static_allocate(sizeof(T) * size);
-				buffer_move_urange(newfirst, b->first, b->last);
-				Alloc::static_deallocate(b->first, sizeof(T) * capacity);
-				b->first = newfirst;
-				b->last = newfirst + size;
-				b->capacity = b->last;
+				const size_t capacity = (size_t)(b.capacity - b.first);
+				const size_t size = (size_t)(b.last - b.first);
+				T* newfirst = (T*)Alloc::static_allocate(sizeof(T) * (size + padding));
+				buffer_move_urange(newfirst, b.first, b.last);
+				Alloc::static_deallocate(b.first, sizeof(T) * (capacity + padding));
+				b.first = newfirst;
+				b.last = newfirst + size;
+				b.capacity = b.last;
 			}
 		}
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_clear(buffer<T, Alloc>* b) {
-		buffer_destroy_range(b->first, b->last);
-		b->last = b->first;
+	static inline void buffer_clear(buffer<T, Alloc>& b) {
+		buffer_destroy_range(b.first, b.last);
+		b.last = b.first;
 	}
 
 	template<typename T, typename Alloc>
-	static inline T* buffer_insert_common(buffer<T, Alloc>* b, T* where, size_t count) {
-		const size_t offset = (size_t)(where - b->first);
-		const size_t newsize = (size_t)((b->last - b->first) + count);
-		if (b->first + newsize > b->capacity)
-			buffer_reserve(b, (newsize * 3) / 2);
+	static inline void string_clear(buffer<T, Alloc>& b) {
+		b.last = b.first;
+		*b.last = 0;
+	}
 
-		where = b->first + offset;
+	template<typename T, typename Alloc>
+	static inline T* buffer_insert_spread(buffer<T, Alloc>& b, T* where, size_t count, size_t padding = 0, bool nodealloc = false) {
+		const size_t offset = (size_t)(where - b.first);
+		const size_t newsize = (size_t)((b.last - b.first) + count);
+		buffer_grow(b, newsize, padding, nodealloc);
 
-		if (where != b->last)
-			buffer_bmove_urange(where + count, where, b->last);
+		where = b.first + offset;
 
-		b->last = b->first + newsize;
+		if (where != b.last)
+			buffer_bmove_urange(where + count, where, b.last);
+
+		b.last = b.first + newsize;
 
 		return where;
 	}
 
 	template<typename T, typename Alloc, typename Param>
-	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, const Param* first, const Param* last) {
+	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, const Param* first, const Param* last) {
 		typedef const char* pointer;
 		const size_t count = last - first;
-		const bool frombuf = ((pointer)b->first <= (pointer)first && (pointer)b->last >= (pointer)last);
-		size_t offset;
+		const bool frombuf = ((pointer)b.first <= (pointer)first && (pointer)b.last >= (pointer)last);
 		if (frombuf) {
-			offset = (pointer)first - (pointer)b->first;
+			size_t offset = (pointer)first - (pointer)b.first;
 			if ((pointer)where <= (pointer)first)
 				offset += count * sizeof(T);
-			where = buffer_insert_common(b, where, count);
-			first = (Param*)((pointer)b->first + offset);
+			where = buffer_insert_spread(b, where, count);
+			first = (Param*)((pointer)b.first + offset);
 			last = first + count;
 		}
 		else {
-			where = buffer_insert_common(b, where, count);
+			where = buffer_insert_spread(b, where, count);
 		}
 		for (; first != last; ++first, ++where)
 			new(placeholder(), where) T(*first);
 	}
 
+	template<typename T, typename Alloc, typename Param>
+	static inline void string_insert(buffer<T, Alloc>& b, T* storage, T* where, const Param* first, const Param* last) {
+		const size_t count = last - first;
+		where = buffer_insert_spread(b, where, count, 1, b.first == storage);
+		buffer_copy_urange(where, first, last);
+		*b.last = 0;
+	}
+
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, const T& value) {
-		where = buffer_insert_common(b, where, 1);
+	static inline void string_copy(buffer<T, Alloc>& b, const T* first, const T* last) {
+		buffer_copy_urange(b.last, first, last);
+		b.last += last - first;
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void string_append(buffer<T, Alloc>& b, T* storage, const T* first, const T* last) {
+		const size_t newsize = (size_t)((b.last - b.first) + (last - first));
+		buffer_grow(b, newsize, 1, b.first == storage);
+		buffer_copy_urange(b.last, first, last);
+		b.last += last - first;
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, const T& value) {
+		where = buffer_insert_spread(b, where, 1);
 		new(placeholder(), where) T(value);
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, T&& value) {
-		where = buffer_insert_common(b, where, 1);
+	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, T&& value) {
+		where = buffer_insert_spread(b, where, 1);
 		new(placeholder(), where) T(static_cast<T&&>(value));
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>* b, T* where, size_t count) {
-		where = buffer_insert_common(b, where, count);
+	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, size_t count) {
+		where = buffer_insert_spread(b, where, count);
 		for (T* end = where+count; where != end; ++where)
 			new(placeholder(), where) T();
 	}
 
 	template<typename T, typename Alloc, typename... Params>
-	static inline void buffer_emplace(buffer<T, Alloc>* b, T* where, size_t count, Params&&... params) {
-		where = buffer_insert_common(b, where, count);
+	static inline void buffer_emplace(buffer<T, Alloc>& b, T* where, size_t count, Params&&... params) {
+		where = buffer_insert_spread(b, where, count);
 		for(T* end = where + count; where != end; ++where)
 			new(placeholder(), where) T(static_cast<Params&&>(params)...);
 	}
 
 	template<typename T, typename Alloc, typename Param>
-	static inline void buffer_append(buffer<T, Alloc>* b, const Param* param) {
-		if (b->capacity != b->last) {
-			new(placeholder(), b->last) T(*param);
-			++b->last;
-		} else {
-			buffer_insert(b, b->last, param, param + 1);
-		}
+	static inline void buffer_append(buffer<T, Alloc>& b, const Param* param) {
+		buffer_grow_count(b, 1);
+		new(placeholder(), b.last) T(*param);
+		++b.last;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_append(buffer<T, Alloc>* b) {
-		if (b->capacity != b->last) {
-			new(placeholder(), b->last) T();
-			++b->last;
-		} else {
-			buffer_insert(b, b->last, 1);
-		}
+	static inline void buffer_append(buffer<T, Alloc>& b) {
+		buffer_grow_count(b, 1);
+		new(placeholder(), b.last) T();
+		++b.last;
 	}
 
 	template<typename T, typename Alloc, typename... Params>
-	static inline void buffer_emplace_back(buffer<T, Alloc>* b, Params&&... params) {
-		if(b->capacity != b->last) {
-			new(placeholder(), b->last) T(static_cast<Params&&>(params)...);
-			++b->last;
-		}
-		else {
-			buffer_emplace(b, b->last, 1, static_cast<Params&&>(params)...);
-		}
+	static inline void buffer_emplace_back(buffer<T, Alloc>& b, Params&&... params) {
+		buffer_grow_count(b, 1);
+		new(placeholder(), b.last) T(static_cast<Params&&>(params)...);
+		++b.last;
 	}
 
 	template<typename T, typename Alloc>
-	static inline T* buffer_erase(buffer<T, Alloc>* b, T* first, T* last) {
+	static inline T* buffer_erase(buffer<T, Alloc>& b, T* first, T* last) {
 		typedef T* pointer;
 		const size_t count = (last - first);
-		for (pointer it = last, end = b->last, dest = first; it != end; ++it, ++dest)
+		for (pointer it = last, end = b.last, dest = first; it != end; ++it, ++dest)
 			move(*dest, *it);
 
-		buffer_destroy_range(b->last - count, b->last);
+		buffer_destroy_range(b.last - count, b.last);
 
-		b->last -= count;
+		b.last -= count;
 		return first;
 	}
 
 	template<typename T, typename Alloc>
-	static inline T* buffer_erase_unordered(buffer<T, Alloc>* b, T* first, T* last) {
+	static inline void buffer_pop(buffer<T, Alloc>& b) {
+		buffer_destroy_range(b.last - 1, b.last);
+		b.last--;
+	}
+
+	template<typename T, typename Alloc>
+	static inline void string_pop(buffer<T, Alloc>& b) {
+		b.last--;
+		*b.last = 0;
+	}
+
+	template<typename T, typename Alloc>
+	static inline T* buffer_erase_unordered(buffer<T, Alloc>& b, T* first, T* last) {
 		typedef T* pointer;
 		const size_t count = (last - first);
-		const size_t tail = (b->last - last);
-		pointer it = b->last - ((count < tail) ? count : tail);
-		for (pointer end = b->last, dest = first; it != end; ++it, ++dest)
+		const size_t tail = (b.last - last);
+		pointer it = b.last - ((count < tail) ? count : tail);
+		for (pointer end = b.last, dest = first; it != end; ++it, ++dest)
 			move(*dest, *it);
 
-		buffer_destroy_range(b->last - count, b->last);
+		buffer_destroy_range(b.last - count, b.last);
 
-		b->last -= count;
+		b.last -= count;
 		return first;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_swap(buffer<T, Alloc>* b, buffer<T, Alloc>* other) {
+	static inline void buffer_swap(buffer<T, Alloc>& b, buffer<T, Alloc>& other) {
 		typedef T* pointer;
-		const pointer tfirst = b->first, tlast = b->last, tcapacity = b->capacity;
-		b->first = other->first, b->last = other->last, b->capacity = other->capacity;
-		other->first = tfirst, other->last = tlast, other->capacity = tcapacity;
+		const pointer tfirst = b.first, tlast = b.last, tcapacity = b.capacity;
+		b.first = other.first, b.last = other.last, b.capacity = other.capacity;
+		other.first = tfirst, other.last = tlast, other.capacity = tcapacity;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_move(buffer<T, Alloc>* dst, buffer<T, Alloc>* src) {
-		dst->first = src->first, dst->last = src->last, dst->capacity = src->capacity;
-		src->first = src->last = src->capacity = nullptr;
+	static inline void buffer_move(buffer<T, Alloc>& dst, buffer<T, Alloc>& src) {
+		dst.first = src.first, dst.last = src.last, dst.capacity = src.capacity;
+		src.first = src.last = src.capacity = nullptr;
 	}
 }
 

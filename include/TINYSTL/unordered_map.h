@@ -63,8 +63,10 @@ namespace tinystl {
 		const_iterator find(const Key& key) const;
 		iterator find(const Key& key);
 		pair<iterator, bool> insert(const pair<Key, Value>& p);
+		pair<iterator, bool> insert(pair<Key, Value>&& p);
 		pair<iterator, bool> emplace(pair<Key, Value>&& p);
 		void erase(const_iterator where);
+		void erase(const Key& key);
 
 		Value& operator[](const Key& key);
 
@@ -84,8 +86,7 @@ namespace tinystl {
 	inline unordered_map<Key, Value, Alloc>::unordered_map()
 		: m_size(0)
 	{
-		buffer_init<pointer, Alloc>(&m_buckets);
-		buffer_resize<pointer, Alloc>(&m_buckets, 9, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, 9, 0);
 	}
 
 	template<typename Key, typename Value, typename Alloc>
@@ -93,8 +94,7 @@ namespace tinystl {
 		: m_size(other.m_size)
 	{
 		const size_t nbuckets = (size_t)(other.m_buckets.last - other.m_buckets.first);
-		buffer_init<pointer, Alloc>(&m_buckets);
-		buffer_resize<pointer, Alloc>(&m_buckets, nbuckets, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, nbuckets, 0);
 
 		for (pointer it = *other.m_buckets.first; it; it = it->next) {
 			unordered_hash_node<Key, Value>* newnode = new(placeholder(), Alloc::static_allocate(sizeof(unordered_hash_node<Key, Value>))) unordered_hash_node<Key, Value>(it->first, it->second);
@@ -108,7 +108,7 @@ namespace tinystl {
 	inline unordered_map<Key, Value, Alloc>::unordered_map(unordered_map&& other)
 		: m_size(other.m_size)
 	{
-		buffer_move(&m_buckets, &other.m_buckets);
+		buffer_move(m_buckets, other.m_buckets);
 		other.m_size = 0;
 	}
 
@@ -116,7 +116,7 @@ namespace tinystl {
 	inline unordered_map<Key, Value, Alloc>::~unordered_map() {
 		if (m_buckets.first != m_buckets.last)
 			clear();
-		buffer_destroy<pointer, Alloc>(&m_buckets);
+		buffer_destroy<pointer, Alloc>(m_buckets);
 	}
 
 	template<typename Key, typename Value, typename Alloc>
@@ -181,7 +181,7 @@ namespace tinystl {
 		}
 
 		m_buckets.last = m_buckets.first;
-		buffer_resize<pointer, Alloc>(&m_buckets, 9, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, 9, 0);
 		m_size = 0;
 	}
 
@@ -206,7 +206,7 @@ namespace tinystl {
 
 			const size_t newnbuckets = ((size_t)(m_buckets.last - m_buckets.first) - 1) * 8;
 			m_buckets.last = m_buckets.first;
-			buffer_resize<pointer, Alloc>(&m_buckets, newnbuckets + 1, 0);
+			buffer_resize<pointer, Alloc>(m_buckets, newnbuckets + 1, 0);
 			unordered_hash_node<Key, Value>** buckets = m_buckets.first;
 
 			while (root) {
@@ -242,7 +242,7 @@ namespace tinystl {
 	}
 
 	template<typename Key, typename Value, typename Alloc>
-	inline pair<typename unordered_map<Key, Value, Alloc>::iterator, bool> unordered_map<Key, Value, Alloc>::emplace(pair<Key, Value>&& p) {
+	inline pair<typename unordered_map<Key, Value, Alloc>::iterator, bool> unordered_map<Key, Value, Alloc>::insert(pair<Key, Value>&& p) {
 		pair<iterator, bool> result;
 		result.second = false;
 
@@ -266,12 +266,24 @@ namespace tinystl {
 	}
 
 	template<typename Key, typename Value, typename Alloc>
+	inline pair<typename unordered_map<Key, Value, Alloc>::iterator, bool> unordered_map<Key, Value, Alloc>::emplace(pair<Key, Value>&& p) {
+		return insert(static_cast<pair<Key, Value>&&>(p));
+	}
+
+	template<typename Key, typename Value, typename Alloc>
 	inline void unordered_map<Key, Value, Alloc>::erase(const_iterator where) {
 		unordered_hash_node_erase(where.node, hash(where->first), m_buckets.first, (size_t)(m_buckets.last - m_buckets.first) - 1);
 
 		where->~unordered_hash_node<Key, Value>();
 		Alloc::static_deallocate((void*)where.node, sizeof(unordered_hash_node<Key, Value>));
 		--m_size;
+	}
+
+	template<typename Key, typename Value, typename Alloc>
+	inline void unordered_map<Key, Value, Alloc>::erase(const Key& key) {
+		const_iterator where = find(key);
+		if(where != end())
+			erase(where);
 	}
 
 	template<typename Key, typename Value, typename Alloc>
@@ -283,7 +295,7 @@ namespace tinystl {
 	inline void unordered_map<Key, Value, Alloc>::swap(unordered_map& other) {
 		size_t tsize = other.m_size;
 		other.m_size = m_size, m_size = tsize;
-		buffer_swap(&m_buckets, &other.m_buckets);
+		buffer_swap(m_buckets, other.m_buckets);
 	}
 }
 #endif

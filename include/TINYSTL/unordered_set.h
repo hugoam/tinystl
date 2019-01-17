@@ -77,8 +77,7 @@ namespace tinystl {
 	inline unordered_set<Key, Alloc>::unordered_set()
 		: m_size(0)
 	{
-		buffer_init<pointer, Alloc>(&m_buckets);
-		buffer_resize<pointer, Alloc>(&m_buckets, 9, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, 9, 0);
 	}
 
 	template<typename Key, typename Alloc>
@@ -86,8 +85,7 @@ namespace tinystl {
 		: m_size(other.m_size)
 	{
 		const size_t nbuckets = (size_t)(other.m_buckets.last - other.m_buckets.first);
-		buffer_init<pointer, Alloc>(&m_buckets);
-		buffer_resize<pointer, Alloc>(&m_buckets, nbuckets, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, nbuckets, 0);
 
 		for (pointer it = *other.m_buckets.first; it; it = it->next) {
 			unordered_hash_node<Key, void>* newnode = new(placeholder(), Alloc::static_allocate(sizeof(unordered_hash_node<Key, void>))) unordered_hash_node<Key, void>(*it);
@@ -100,7 +98,7 @@ namespace tinystl {
 	inline unordered_set<Key, Alloc>::unordered_set(unordered_set&& other)
 		: m_size(other.m_size)
 	{
-		buffer_move(&m_buckets, &other.m_buckets);
+		buffer_move(m_buckets, other.m_buckets);
 		other.m_size = 0;
 	}
 
@@ -108,7 +106,7 @@ namespace tinystl {
 	inline unordered_set<Key, Alloc>::~unordered_set() {
 		if (m_buckets.first != m_buckets.last)
 			clear();
-		buffer_destroy<pointer, Alloc>(&m_buckets);
+		buffer_destroy<pointer, Alloc>(m_buckets);
 	}
 
 	template<typename Key, typename Alloc>
@@ -159,7 +157,7 @@ namespace tinystl {
 		}
 
 		m_buckets.last = m_buckets.first;
-		buffer_resize<pointer, Alloc>(&m_buckets, 9, 0);
+		buffer_resize<pointer, Alloc>(m_buckets, 9, 0);
 		m_size = 0;
 	}
 
@@ -177,7 +175,7 @@ namespace tinystl {
 
 			const size_t newnbuckets = ((size_t)(m_buckets.last - m_buckets.first) - 1) * 8;
 			m_buckets.last = m_buckets.first;
-			buffer_resize<pointer, Alloc>(&m_buckets, newnbuckets + 1, 0);
+			buffer_resize<pointer, Alloc>(m_buckets, newnbuckets + 1, 0);
 			unordered_hash_node<Key, void>** buckets = m_buckets.first;
 
 			while (root) {
@@ -259,7 +257,7 @@ namespace tinystl {
 	void unordered_set<Key, Alloc>::swap(unordered_set& other) {
 		size_t tsize = other.m_size;
 		other.m_size = m_size, m_size = tsize;
-		buffer_swap(&m_buckets, &other.m_buckets);
+		buffer_swap(m_buckets, other.m_buckets);
 	}
 }
 #endif
