@@ -421,7 +421,7 @@ namespace tinystl {
 	}
 
 	template<typename Alloc>
-	inline typename void basic_string<Alloc>::erase(size_t pos, size_t len) {
+	inline void basic_string<Alloc>::erase(size_t pos, size_t len) {
 		string_erase(m_buffer, m_buffer.first + pos, len == npos ? m_buffer.last : m_buffer.first + pos + len);
 	}
 
