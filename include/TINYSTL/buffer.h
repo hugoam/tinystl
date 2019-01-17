@@ -404,6 +404,7 @@ namespace tinystl {
 	static inline T* string_erase(buffer<T, Alloc>& b, T* first, T* last) {
 		buffer_erase(b, first, last);
 		*b.last = 0;
+		return first;
 	}
 
 	template<typename T, typename Alloc>
