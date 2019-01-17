@@ -581,16 +581,16 @@ namespace tinystl {
 	inline bool operator!=(const basic_string<LAlloc>& lhs, const basic_string<RAlloc>& rhs) { return !(lhs == rhs); }
 
 	template<typename Alloc>
-	inline bool operator==(const basic_string<Alloc>& lhs, const char* rhs) { return lhs == string(rhs); }
+	inline bool operator==(const basic_string<Alloc>& lhs, const char* rhs) { return lhs == basic_string<Alloc>(rhs); }
 
 	template<typename Alloc>
-	inline bool operator==(const char* lhs, const basic_string<Alloc>& rhs) { return string(lhs) == rhs; }
+	inline bool operator==(const char* lhs, const basic_string<Alloc>& rhs) { return basic_string<Alloc>(lhs) == rhs; }
 	
 	template<typename Alloc>
-	inline bool operator!=(const basic_string<Alloc>& lhs, const char* rhs) { return lhs != string(rhs); }
+	inline bool operator!=(const basic_string<Alloc>& lhs, const char* rhs) { return lhs != basic_string<Alloc>(rhs); }
 
 	template<typename Alloc>
-	inline bool operator!=(const char* lhs, const basic_string<Alloc>& rhs) { return string(lhs) != rhs; }
+	inline bool operator!=(const char* lhs, const basic_string<Alloc>& rhs) { return basic_string<Alloc>(lhs) != rhs; }
 
 	template<typename Alloc>
 	static inline size_t hash(const basic_string<Alloc>& value) {

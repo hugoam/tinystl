@@ -52,7 +52,7 @@ namespace tinystl {
 	using remove_reference_t = typename remove_reference<T>::type;
 
 	template<class T>
-	constexpr remove_reference_t<T>&& move(T&& arg) noexcept
+	constexpr remove_reference_t<T>&& move(T&& arg, tinystl::placeholder) noexcept
 	{
 		return (static_cast<remove_reference_t<T>&&>(arg));
 	}
@@ -63,7 +63,7 @@ namespace tinystl {
 
 	template<typename T>
 	static inline void move_impl(T& a, T& b, ...) {
-		a = move(b);
+		a = move(b, placeholder());
 	}
 
 	template<typename T>
@@ -78,7 +78,7 @@ namespace tinystl {
 
 	template<typename T>
 	static inline void move_construct_impl(T* a, T& b, ...) {
-		new(placeholder(), a) T(move(b));
+		new(placeholder(), a) T(move(b, placeholder()));
 	}
 
 	template<typename T>
