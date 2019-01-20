@@ -296,28 +296,17 @@ namespace tinystl {
 		return where;
 	}
 
-	template<typename T, typename Alloc, typename Param>
-	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, const Param* first, const Param* last) {
-		typedef const char* pointer;
+	template<typename T, typename Alloc>
+	static inline T* buffer_insert(buffer<T, Alloc>& b, T* where, const T* first, const T* last) {
 		const size_t count = last - first;
-		const bool frombuf = ((pointer)b.first <= (pointer)first && (pointer)b.last >= (pointer)last);
-		if (frombuf) {
-			size_t offset = (pointer)first - (pointer)b.first;
-			if ((pointer)where <= (pointer)first)
-				offset += count * sizeof(T);
-			where = buffer_insert_spread(b, where, count);
-			first = (Param*)((pointer)b.first + offset);
-			last = first + count;
-		}
-		else {
-			where = buffer_insert_spread(b, where, count);
-		}
+		where = buffer_insert_spread(b, where, count);
 		for (; first != last; ++first, ++where)
 			new(placeholder(), where) T(*first);
+		return where;
 	}
 
-	template<typename T, typename Alloc, typename Param>
-	static inline void string_insert(buffer<T, Alloc>& b, T* storage, T* where, const Param* first, const Param* last) {
+	template<typename T, typename Alloc>
+	static inline void string_insert(buffer<T, Alloc>& b, T* storage, T* where, const T* first, const T* last) {
 		const size_t count = last - first;
 		where = buffer_insert_spread(b, where, count, 1, b.first == storage);
 		buffer_copy_urange(where, first, last);
@@ -341,22 +330,25 @@ namespace tinystl {
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, const T& value) {
+	static inline T* buffer_insert(buffer<T, Alloc>& b, T* where, const T& value) {
 		where = buffer_insert_spread(b, where, 1);
 		new(placeholder(), where) T(value);
+		return where;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, T&& value) {
+	static inline T* buffer_insert(buffer<T, Alloc>& b, T* where, T&& value) {
 		where = buffer_insert_spread(b, where, 1);
 		new(placeholder(), where) T(static_cast<T&&>(value));
+		return where;
 	}
 
 	template<typename T, typename Alloc>
-	static inline void buffer_insert(buffer<T, Alloc>& b, T* where, size_t count) {
+	static inline T* buffer_insert(buffer<T, Alloc>& b, T* where, size_t count) {
 		where = buffer_insert_spread(b, where, count);
 		for (T* end = where+count; where != end; ++where)
 			new(placeholder(), where) T();
+		return where;
 	}
 
 	template<typename T, typename Alloc, typename... Params>

@@ -93,10 +93,10 @@ namespace tinystl {
 		const_iterator begin() const;
 		const_iterator end() const;
 
-		void insert(iterator where);
-		void insert(iterator where, const T& value);
-		void insert(iterator where, T&& value);
-		void insert(iterator where, const T* first, const T* last);
+		iterator insert(iterator where);
+		iterator insert(iterator where, const T& value);
+		iterator insert(iterator where, T&& value);
+		iterator insert(iterator where, const T* first, const T* last);
 
 		template<typename... Params>
 		void emplace(iterator where, Params&&... params);
@@ -302,23 +302,23 @@ namespace tinystl {
 	}
 
 	template<typename T, typename Alloc>
-	inline void vector<T, Alloc>::insert(iterator where) {
-		buffer_insert(m_buffer, where, 1);
+	inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator where) {
+		return buffer_insert(m_buffer, where, 1);
 	}
 
 	template<typename T, typename Alloc>
-	inline void vector<T, Alloc>::insert(iterator where, const T& value) {
-		buffer_insert(m_buffer, where, value);
+	inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator where, const T& value) {
+		return buffer_insert(m_buffer, where, value);
 	}
 
 	template<typename T, typename Alloc>
-	inline void vector<T, Alloc>::insert(iterator where, T&& value) {
-		buffer_insert(m_buffer, where, static_cast<T&&>(value));
+	inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator where, T&& value) {
+		return buffer_insert(m_buffer, where, static_cast<T&&>(value));
 	}
 
 	template<typename T, typename Alloc>
-	inline void vector<T, Alloc>::insert(iterator where, const T* first, const T* last) {
-		buffer_insert(m_buffer, where, first, last);
+	inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator where, const T* first, const T* last) {
+		return buffer_insert(m_buffer, where, first, last);
 	}
 
 	template<typename T, typename Alloc>
