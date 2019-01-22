@@ -597,7 +597,7 @@ namespace tinystl {
 		return hash_string(value.c_str(), value.size());
 	}
 
-	typedef basic_string<TINYSTL_ALLOCATOR> string;
+	using string = basic_string<TINYSTL_ALLOCATOR>;
 }
 
 #endif
